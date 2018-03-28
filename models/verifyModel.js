@@ -12,7 +12,7 @@ module.exports = function verifyToken(token) {
         if (err) {
           //invalid token
           result.status = httpStatus.UNAUTHORIZED;
-          result.err = "Invalid token";
+          result.err = err;
         } else if (decoded.exp <= time) {
           //token expired
           result.status = httpStatus.UNAUTHORIZED;

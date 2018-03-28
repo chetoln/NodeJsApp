@@ -82,102 +82,122 @@ module.exports = class Member {
 
   putUpdateInfo(req, res, next) {
     const token = req.headers["token"];
-    if (memberCheck.checkNull(token)) {
+    if (memberCheck.checkNull(token) || !req.body.name) {
       res.json({
         result: {
           status: "Update user info failed",
-          err: "Invalid token。"
+          err: !req.body.name ? "Invalid parameter" : "Invalid token。"
         }
       });
-    } else {
-      toVerify(token).then(tokenResult => {
-        if (tokenResult.status !== httpStatus.OK) {
-          res.json({
-            result: {
-              status: "Update user info failed",
-              err: "Invalid token。"
-            }
-          });
-        } else {
-          const id = tokenResult.data;
-          const updData = {
-            name: req.body.name,
-            password: req.body.password ? encryption(req.body.password) : undefined,
-            update_date: onTime()
-          };
-          //remove name if user does't update name
-          if (!updData.name) delete updData.name;
-
-          //remove password if user doesn't update password
-          if (!updData.password) delete updData.password;
-
-          toUpdate(id, updData).then(
-            result => {
-              res.json({
-                result: {
-                  status: "User info updated",
-                  data: result,
-                }
-              });
-            },
-            err => {
-              res.json({
-                result: {
-                  status: "Update user info failed",
-                  err: err
-                }
-              });
-            }
-          );
-        }
-      });
+      return;
     }
-  }
-};
 
-//TODO
-putUpdatePassword(req, res, next) {
-  if (memberCheck.checkNull(req.body.oriPassword) || memberCheck.checkNull(req.body.newPassword)) {
-    res.json({
-      result: {
-        status: "Update password failed.",
-        err: "Invalid token。"
+    toVerify(token).then(tokenResult => {
+      if (tokenResult.status !== httpStatus.OK) {
+        res.json({
+          result: {
+            status: "Update user info failed",
+            err: tokenResult.err
+          }
+        });
+      } else {
+        const id = tokenResult.data;
+        const updData = {
+          name: req.body.name,
+          update_date: onTime()
+        };
+        //remove name if user does't update name
+        if (!updData.name) delete updData.name;
+
+        toUpdate(id, updData).then(
+          result => {
+            res.json({
+              result: {
+                status: "User info updated",
+                data: result
+              }
+            });
+          },
+          err => {
+            res.json({
+              result: {
+                status: "Update user info failed",
+                err: err
+              }
+            });
+          }
+        );
       }
     });
-    return;
   }
 
-  //Get data from client side
-  const pwdData = {
-    email: req.body.email,
-    oriPassword: req.body.oriPassword,
-    newPassword: req.body.newPassword,
-    update_date: onTime()
-  };
-
-  const oriData = {
-    email: req.body.email,
-    password: encryption(req.body.oriPassword)
-  };
-
-  toLogin(oriData).then(rows => {
-    if (memberCheck.checkNull(rows)) {
+  //TODO
+  putUpdatePassword(req, res, next) {
+    const token = req.headers["token"];
+    if (
+      !token ||
+      !req.body.oriPassword ||
+      !req.body.newPassword ||
+      !req.body.email
+    ) {
       res.json({
         result: {
           status: "Update password failed.",
-          err: "Server error."
+          err: !token ? "Invalid token" : "Invalid parameter"
         }
       });
-    } else {
-      res.json({
-        result: {
-          status: "login successed",
-          token: getToken(rows[0].id)
-        }
-      });
+      return;
     }
-  });
-} 
+
+    //Get data from client side
+    const pwdData = {
+      email: req.body.email,
+      oriPassword: req.body.oriPassword,
+      newPassword: req.body.newPassword,
+      update_date: onTime()
+    };
+
+    const oriData = {
+      email: req.body.email,
+      password: encryption(req.body.oriPassword)
+    };
+    toVerify(token).then(tokenResult => {
+      if (tokenResult.status !== httpStatus.OK) {
+        res.json({
+          result: {
+            status: "Update password failed",
+            err: tokenResult.err
+          }
+        });
+      } else {
+        const id = tokenResult.data;
+        const updData = {
+          password: encryption(req.body.newPassword),
+          update_date: onTime()
+        };
+
+        toUpdate(id, updData).then(
+          result => {
+            res.json({
+              result: {
+                status: "User password updated",
+                data: result
+              }
+            });
+          },
+          err => {
+            res.json({
+              result: {
+                status: "Update user password failed",
+                err: err
+              }
+            });
+          }
+        );
+      }
+    });
+  }
+};
 
 const getToken = id =>
   jwt.sign(
